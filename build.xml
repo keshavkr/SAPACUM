@@ -1,0 +1,177 @@
+<project name="connector-sapacum" default="all">
+    <import file="../connector_build.xml"/>
+    <property name="sapum.dir" value="../sapum"/>
+	
+	<!-- Added to build the common sapac jar first-->
+    <target name="sapac" depends="ac-dist"
+	 description="Builds SAPAC jar and then builds the SAPACUM connector bundle jar">
+    </target>
+	
+    <target name="ac-dist" depends="ac-jar"
+        description="generates the distribution (excludes test classes)">
+    </target>
+	
+	<!-- To build the sapac jar which contains the common sapac WS Client classes-->
+    <target name="ac-jar" depends="ac-compile-main-internal, load-label-properties">
+        <!-- Create the distribution directory -->
+        <mkdir dir="${dist}" />
+        <property name="jar-file" value="${dist}/${CommonBundle-Name}.jar" />        
+        <echo>
+               Building jar:  ${jar-file}
+        </echo>        
+        <jar jarfile="${jar-file}" index="true">
+            <!-- include all compiled classes -->
+            <fileset dir="${build.main}/sapacClient">
+                <patternset refid="ignore" />
+            </fileset>    
+            <!-- include license -->
+            <fileset file="${license.file}"/>
+            <fileset file="${thirdpartyreadme.file}"/>
+            <manifest>
+               <attribute name="Specification-Title" value="${CommonBundle-Name}" />
+               <attribute name="Specification-Version" value="${CommonBundle-Version}" />
+               <attribute name="Specification-Vendor" value="${Vendor}"/>
+               <attribute name="Implementation-Title" value="${Impec-Title}"/>
+               <attribute name="Implementation-Version" value="${VIEW_LABEL}"/>
+               <attribute name="Implementation-Vendor" value="${Vendor}"/>
+               <attribute name="CommonBundle-Name" value="${CommonBundle-Name}" />
+               <attribute name="Build-Label" value="${VIEW_LABEL}"/>
+               <attribute name="Build-Transaction" value="${VIEW_TXN_NAME}"/>
+               <section name="${CB.Name}"/>
+            </manifest>
+        </jar>
+    </target>
+	
+	<!-- To compile the common sapac WS Client source-->
+    <target name="ac-compile-main-internal">
+        <mkdir dir="${build.main}/sapacClient" />
+        <javac
+            debug="${java.debug}" 
+            srcdir="${src.main.java}/sapacClient" destdir="${build.main}/sapacClient" 
+            target="${java.target}" source="${java.source}">
+            <classpath>
+                <path refid="build.path"/>
+            </classpath>
+            <compilerarg line="${java.compilerargs}"/>
+        </javac>
+        <condition property="doTraceInjection">
+            <istrue value="${trace.injection}"/>
+        </condition>
+        <antcall target="inject-trace"/>
+    </target>
+	
+	<!-- Overriding to specify the class files path for sapacum bundle jar, path is build/Classes/sapacum -->
+	<target name="jar" depends="compile-main, set-version, load-label-properties, instrument">
+        <!-- Create the distribution directory -->
+        <mkdir dir="${dist}" />
+        <property name="jar.file" value="${dist}/${ConnectorBundle-Name}-${ConnectorBundle-Version}.jar" />        
+        <echo>
+               Building jar:  ${jar.file}
+        </echo>        
+        <jar jarfile="${jar.file}" index="true">
+            <!-- include all compiled classes -->
+            <fileset dir="${build.main}/sapacum">
+                <patternset refid="ignore" />
+            </fileset>
+            <!-- include all 3rd party deps -->
+            <fileset refid="dist.libs" />
+            <!-- include all native libs -->
+            <fileset refid="native.libs" />
+            <!-- include license -->
+            <fileset file="${license.file}"/>
+            <fileset file="${thirdpartyreadme.file}"/>
+            <manifest>
+               <attribute name="Specification-Title" value="${Spec-Title}" />
+               <attribute name="Specification-Version" value="${ConnectorBundle-Version}" />
+               <attribute name="Specification-Vendor" value="${Vendor}"/>
+               <attribute name="Implementation-Title" value="${ConnectorBundle-Name}"/>
+               <attribute name="Implementation-Version" value="${VIEW_LABEL}"/>
+               <attribute name="Implementation-Vendor" value="${Vendor}"/>
+               <attribute name="ConnectorBundle-FrameworkVersion" value="${ConnectorBundle-FrameworkVersion}" />
+               <attribute name="ConnectorBundle-Name" value="${ConnectorBundle-Name}" />
+               <attribute name="ConnectorBundle-Version" value="${ConnectorBundle-Version}" />
+               <attribute name="Build-Label" value="${VIEW_LABEL}"/>
+               <attribute name="Build-Transaction" value="${VIEW_TXN_NAME}"/>
+               <section name="${Name}" />
+            </manifest>
+        </jar>
+    </target>
+	
+	<!-- Overridding to copy sapac and sap um jar into sapacume/lib-->
+    <target name="-pre-compile-extra">
+	<ant antfile="build.xml" inheritall="false" target="sapac" dir="."/>
+	<!-- Copy sapac jar from sapacum/dist to sapacum/lib -->
+        <copy todir="${lib}">
+          <fileset dir="${dist}" includes="sapac*.jar"/>
+        </copy>
+	<!-- Copy sapum jar from sapum/dist to sapacum/lib -->
+        <copy todir="${lib}">
+          <fileset dir="${sapum.dir}/dist" includes="*.jar"/>
+        </copy>
+    </target>
+	
+	<!-- Overriding to specify the source path of sapacum package, path is src/main/java/sapacum .
+		 The destination for the compiled classes would be build/Classes/sapacum .
+	-->
+	<target name="compile-main-internal">
+        <mkdir dir="${build.main}/sapacum" />
+        <javac
+            debug="${java.debug}" 
+            srcdir="${src.main.java}/sapacum" destdir="${build.main}/sapacum" 
+            target="${java.target}" source="${java.source}">
+            <classpath>
+                <path refid="build.path"/>
+            </classpath>
+            <compilerarg line="${java.compilerargs}"/>
+        </javac>
+        <!-- We support resources also in src/main/java, so copy to build -->
+        <copy todir="${build.main}/sapacum">
+            <fileset dir="${src.main.java}/sapacum">
+                <patternset refid="exclude.javasrc" />
+            </fileset>
+        </copy>
+        <condition property="doTraceInjection">
+            <istrue value="${trace.injection}"/>
+        </condition>
+        <antcall target="inject-trace"/>
+   </target>
+
+	<!-- Overriding to specify the build/classes/sapacum path -->
+    <target name="copy-main-resources" if="src.main.resources.exists">
+        <copy todir="${build.main}/sapacum">
+            <fileset dir="${src.main.resources}"/>
+        </copy>
+    </target>
+	
+	<!-- Overriding to skip jar-test for SAPACUM-->
+	<target name="jar-test" >
+		<echo message="Skipping jar-test for SAP AC UM..."/>
+	</target>
+	
+	<!-- Overriding to skip all tests for SAPACUM-->
+	<target name="test" >
+		<echo message="Skipping test for SAP AC UM..."/>
+	</target>
+	   
+    <target name="publish_code_coverage" >
+        <echo message="creating classes tar file for ${bundle.name} connector" />
+        <property file="pwv.properties" />
+        <property name="sapcoverage.file"  value="/net/slc04sop/scratch/smelgiri/sap_reports/sapacum/coverage.exec"/>
+        <property name="sapclasses.tar.gz.file" value="/net/slc04sop/scratch/smelgiri/sap_reports/sapacum/classes.tar.gz"/>
+          <echo message="${codeCoverageJar} -tool ${codeCoverageTool} -m ${sapclasses.tar.gz.file} -c ${sapcoverage.file} -r ${oim.release.version} -com ${code.coverage.component} -u ${connector.user} -jobname ${bundle.name}Connector -testt unit -stage devUnitTests -groupf ${groupsFile} -l ${VIEW_LABEL}" />
+          <java jar="${codeCoverageJar}" fork="true">
+            <arg line="-tool ${codeCoverageTool}" />
+            <arg line="-m ${sapclasses.tar.gz.file}" />
+            <arg line="-c ${sapcoverage.file}" />
+            <arg line="-r ${oim.release.version}"/>
+            <arg line="-l ${VIEW_LABEL}"/>
+            <arg line="-com ${code.coverage.component}"/>
+            <arg line="-u ${connector.user}"/>
+            <arg line="-jobname ${bundle.name}Connector" />
+            <arg line = "-testt unit" />
+            <arg line = "-stage devUnitTests" />
+            <arg line = "-groupf ${groupsFile}" />
+        </java>
+    </target>
+</project>
+
